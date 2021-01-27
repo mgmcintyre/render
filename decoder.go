@@ -17,6 +17,7 @@ import (
 // bytes allowed to be read from the request body.
 var Decode = DefaultDecoder
 
+// DefaultDecoder returns a default decoder
 func DefaultDecoder(r *http.Request, v interface{}) error {
 	var err error
 
@@ -33,11 +34,13 @@ func DefaultDecoder(r *http.Request, v interface{}) error {
 	return err
 }
 
+// DecodeJSON is the standard JSON decoder
 func DecodeJSON(r io.Reader, v interface{}) error {
 	defer io.Copy(ioutil.Discard, r)
 	return json.NewDecoder(r).Decode(v)
 }
 
+// DecodeXML is the standard XML decoder
 func DecodeXML(r io.Reader, v interface{}) error {
 	defer io.Copy(ioutil.Discard, r)
 	return xml.NewDecoder(r).Decode(v)

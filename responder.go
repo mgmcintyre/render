@@ -32,7 +32,7 @@ func Status(r *http.Request, status int) {
 	*r = *r.WithContext(context.WithValue(r.Context(), StatusCtxKey, status))
 }
 
-// Respond handles streaming JSON and XML responses, automatically setting the
+// DefaultResponder handles streaming JSON and XML responses, automatically setting the
 // Content-Type based on request headers. It will default to a JSON response.
 func DefaultResponder(w http.ResponseWriter, r *http.Request, v interface{}) {
 	if v != nil {

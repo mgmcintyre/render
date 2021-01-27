@@ -10,6 +10,14 @@ type Renderer interface {
 	Render(w http.ResponseWriter, r *http.Request) error
 }
 
+// RendererList allows slices of Renderers to conform to Renderer
+type RendererList []Renderer
+
+// Render conforms to the interface
+func (l RendererList) Render(w http.ResponseWriter, r *http.Request) error {
+	return nil
+}
+
 // Binder interface for managing request payloads.
 type Binder interface {
 	Bind(r *http.Request) error
@@ -34,14 +42,8 @@ func Render(w http.ResponseWriter, r *http.Request, v Renderer) error {
 }
 
 // RenderList renders a slice of payloads and responds to the client request.
-func RenderList(w http.ResponseWriter, r *http.Request, l []Renderer) error {
-	for _, v := range l {
-		if err := renderer(w, r, v); err != nil {
-			return err
-		}
-	}
-	Respond(w, r, l)
-	return nil
+func RenderList(w http.ResponseWriter, r *http.Request, l RendererList) error {
+	return Render(w, r, l)
 }
 
 func isNil(f reflect.Value) bool {
@@ -65,16 +67,43 @@ func renderer(w http.ResponseWriter, r *http.Request, v Renderer) error {
 		return err
 	}
 
-	// We're done if the Renderer isn't a struct object
-	if rv.Kind() != reflect.Struct {
+	// We're done if the Renderer isn't a struct object or a slice
+	if rv.Kind() != reflect.Struct && rv.Kind() != reflect.Slice {
 		return nil
 	}
 
 	// For structs, we call Render on each field that implements Renderer
-	for i := 0; i < rv.NumField(); i++ {
-		f := rv.Field(i)
-		if f.Type().Implements(rendererType) {
+	if rv.Kind() == reflect.Struct {
+		for i := 0; i < rv.NumField(); i++ {
+			f := rv.Field(i)
+			if f.Type().Implements(rendererType) {
 
+				if isNil(f) {
+					continue
+				}
+
+				fv := f.Interface().(Renderer)
+				if err := renderer(w, r, fv); err != nil {
+					return err
+				}
+
+			}
+		}
+	}
+
+	// For slices, we check if the first slice element implements Renderer and
+	// if so call Render recursively for each element of the slice
+	if rv.Kind() == reflect.Slice {
+		if rv.Len() == 0 {
+			return nil
+		}
+
+		if !rv.Index(0).Type().Implements(rendererType) {
+			return nil
+		}
+
+		for i := 0; i < rv.Len(); i++ {
+			f := rv.Index(i)
 			if isNil(f) {
 				continue
 			}
@@ -83,7 +112,6 @@ func renderer(w http.ResponseWriter, r *http.Request, v Renderer) error {
 			if err := renderer(w, r, fv); err != nil {
 				return err
 			}
-
 		}
 	}
 
